@@ -1,0 +1,152 @@
+"""Plots and sample viewers used by the experiments notebook (matplotlib, static)."""
+
+from __future__ import annotations
+
+import textwrap
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+from .data import get_content_mask, load_mask, load_rgb
+
+# Reference categorical order (blue, orange, aqua, yellow, ...); colour follows the series, not its rank.
+SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"]
+SURFACE, INK, INK_2, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df"
+KEY_OVERLAY, CONTENT_OVERLAY = SERIES[2], SERIES[1]
+
+
+def _style(ax) -> None:
+    ax.set_facecolor(SURFACE)
+    ax.grid(True, color=GRID, linewidth=0.8)
+    ax.set_axisbelow(True)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    for side in ("left", "bottom"):
+        ax.spines[side].set_color(GRID)
+    ax.tick_params(colors=INK_2, labelsize=9)
+    ax.xaxis.label.set_color(INK_2)
+    ax.yaxis.label.set_color(INK_2)
+    ax.title.set_color(INK)
+
+
+def alpha_sweep(runs: dict[str, pd.DataFrame], alphas=np.round(np.arange(0.05, 0.55, 0.025), 3),
+                paper_alpha: float = 0.25):
+    """Accuracy as a function of the Eq. 4 threshold, one line per run (needs `ratio` and `label`).
+
+    Returns (figure, table) so the same numbers are available as a table.
+    """
+    table = pd.DataFrame({"alpha": alphas})
+    fig, ax = plt.subplots(figsize=(7.5, 4), facecolor=SURFACE)
+    for i, (name, df) in enumerate(runs.items()):
+        acc = [float(((df["ratio"] >= a).astype(int) == df["label"]).mean()) for a in alphas]
+        table[name] = acc
+        ax.plot(alphas, acc, color=SERIES[i % len(SERIES)], linewidth=2, marker="o", markersize=4, label=name)
+    # Direct end labels, nudged apart so overlapping lines do not stack their names.
+    ends = sorted(((table[name].iloc[-1], name) for name in runs), key=lambda t: t[0])
+    span = max(table[list(runs)].to_numpy().max() - table[list(runs)].to_numpy().min(), 0.05) if runs else 1
+    min_gap, placed = 0.06 * span, []
+    for y, name in ends:
+        y_label = max(y, placed[-1] + min_gap) if placed else y
+        placed.append(y_label)
+        ax.annotate(name, (alphas[-1], y), xytext=(alphas[-1] + 0.012, y_label), textcoords="data",
+                    va="center", fontsize=9, color=INK_2)
+    ax.axvline(paper_alpha, color=INK_2, linewidth=1, linestyle="--")
+    ax.text(paper_alpha, 1.0, " α do artigo", color=INK_2, fontsize=9, va="top",
+            transform=ax.get_xaxis_transform())
+    ax.set_xlabel("α (limiar da Eq. 4)")
+    ax.set_ylabel("acurácia")
+    ax.set_title("Acurácia da detecção de obstrução em função de α", loc="left", fontsize=11)
+    ax.legend(frameon=False, fontsize=9, labelcolor=INK_2, loc="upper center", bbox_to_anchor=(0.5, -0.16),
+              ncols=min(len(runs), 4))
+    ax.set_xlim(alphas[0] - 0.01, alphas[-1] + 0.09)
+    _style(ax)
+    fig.tight_layout()
+    return fig, table
+
+
+def factor_rates(pred: pd.DataFrame):
+    """Ground-truth vs predicted positive rate for A, S, I and the final decision M."""
+    rows = []
+    for factor, gt_col, pred_col in [("A", "A", "pred_A"), ("S", "S", "pred_S"), ("I", "I", "pred_I"),
+                                     ("M (decisão final)", "label", "pred")]:
+        if gt_col in pred.columns and pred_col in pred.columns:
+            rows.append({"fator": factor, "rótulo (verdade)": pred[gt_col].mean(),
+                         "previsto pelo VLM": pred[pred_col].fillna(0).mean()})
+    table = pd.DataFrame(rows)
+    fig, ax = plt.subplots(figsize=(7, 3.6), facecolor=SURFACE)
+    x = np.arange(len(table))
+    width = 0.36
+    for j, col in enumerate(["rótulo (verdade)", "previsto pelo VLM"]):
+        bars = ax.bar(x + (j - 0.5) * (width + 0.02), table[col], width, color=SERIES[j], label=col)
+        ax.bar_label(bars, labels=[f"{v:.0%}" for v in table[col]], fontsize=8, color=INK_2, padding=2)
+    ax.set_xticks(x, table["fator"])
+    ax.set_ylim(0, 1.1)
+    ax.set_ylabel("proporção de \"yes\"")
+    ax.set_title("Taxa de respostas positivas: rótulo × VLM", loc="left", fontsize=11)
+    ax.legend(frameon=False, fontsize=9, labelcolor=INK_2, loc="upper center", bbox_to_anchor=(0.5, -0.12),
+              ncols=2)
+    _style(ax)
+    fig.tight_layout()
+    return fig, table
+
+
+def _overlay(img: np.ndarray, mask: np.ndarray, color: str, alpha: float = 0.45) -> np.ndarray:
+    rgb = np.array([int(color[i:i + 2], 16) for i in (1, 3, 5)], dtype=float)
+    out = img.astype(float).copy()
+    out[mask] = (1 - alpha) * out[mask] + alpha * rgb
+    return out.astype(np.uint8)
+
+
+def show_obstruction(row: pd.Series, width: float = 12):
+    """Raw image with the ground-truth key-object mask, AR image, and content mask over the raw image."""
+    raw = np.asarray(load_rgb(row["raw_path"]))
+    ar = np.asarray(load_rgb(row["ar_path"]))
+    content = get_content_mask(row)
+    panels = []
+    key_path = row.get("key_mask_path")
+    if isinstance(key_path, str) and key_path:
+        panels.append((_overlay(raw, load_mask(key_path), KEY_OVERLAY), "I_r + objeto-chave (verdade)"))
+    else:
+        panels.append((raw, "I_r"))
+    panels.append((ar, "I_a (vista do usuário)"))
+    panels.append((_overlay(raw, content, CONTENT_OVERLAY), "I_r + conteúdo virtual m_c"))
+    fig, axes = plt.subplots(1, len(panels), figsize=(width, width / len(panels) * 1.4))
+    for ax, (img, title) in zip(axes, panels):
+        ax.imshow(img)
+        ax.set_title(title, fontsize=9, color=INK_2)
+        ax.axis("off")
+    pred = row.get("pred")
+    info = [f"id={row['id']}", f"rótulo={'obstruído' if row['label'] == 1 else 'não obstruído'}",
+            f"previsto={'?' if pd.isna(pred) else ('obstruído' if pred == 1 else 'não obstruído')}"]
+    if "key_object" in row and isinstance(row["key_object"], str):
+        info.append(f"objeto-chave={row['key_object']}")
+    if "key_phrase" in row and isinstance(row["key_phrase"], str):
+        info.append(f"VLM disse={row['key_phrase']!r}")
+    if "ratio" in row and not pd.isna(row.get("ratio")):
+        info.append(f"razão={row['ratio']:.2f}")
+    if "key_iou" in row and not pd.isna(row.get("key_iou")):
+        info.append(f"IoU objeto={row['key_iou']:.2f}")
+    fig.suptitle(" · ".join(info), fontsize=9, color=INK)
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    return fig
+
+
+def show_manipulation(row: pd.Series, width: float = 9, print_response: bool = True):
+    """Raw and AR images side by side, labels vs predictions, and the VLM's full answer."""
+    fig, axes = plt.subplots(1, 2, figsize=(width, width * 0.95))
+    for ax, key, title in [(axes[0], "raw_path", "I_r (crua)"), (axes[1], "ar_path", "I_a (aumentada)")]:
+        ax.imshow(load_rgb(row[key]))
+        ax.set_title(title, fontsize=9, color=INK_2)
+        ax.axis("off")
+
+    def fmt(v):
+        return "?" if pd.isna(v) else str(int(v))
+
+    gt = " ".join(f"{f}={fmt(row.get(f))}" for f in ("A", "S", "I")) + f" M={fmt(row['label'])}"
+    pr = " ".join(f"{f}={fmt(row.get('pred_' + f))}" for f in ("A", "S", "I")) + f" M={fmt(row.get('pred'))}"
+    fig.suptitle(f"id={row['id']}   rótulo: {gt}   VLM: {pr}", fontsize=9, color=INK)
+    fig.tight_layout()
+    if print_response and isinstance(row.get("vlm_response"), str):
+        print("\n".join(textwrap.fill(line, 110) for line in row["vlm_response"].splitlines()))
+    return fig
