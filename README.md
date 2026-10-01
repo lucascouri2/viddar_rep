@@ -166,10 +166,41 @@ Decodificação greedy, α = 0,25, imagens reduzidas para até 1 megapixel, RTX 
 
 Testado em Windows 10, Python 3.12, NVIDIA RTX 3060 12 GB (driver 560), CUDA 12.6.
 
-**1. Dataset.** Baixe a pasta do [Google Drive](https://drive.google.com/drive/folders/1aZ-2n-_DjUDqTJuQUbqMWiohOCxcp2UO?usp=drive_link)
-e coloque o conteúdo em `ViDDAR dataset/ViDDAR Dataset/`, com as subpastas `obstruction_raw_img`,
-`obstruction_ar_img`, `obstruction_key_object_mask`, `obstruction_ar_content_mask`, `raw`,
-`confusion_ar_img` e os arquivos `obstruction_labels.csv` e `confusion_labels.csv`.
+**1. Dados.** As imagens não estão no repositório (são cerca de 1,8 GB); baixe-as do Drive dos autores.
+
+1. Abra o [Google Drive do dataset](https://drive.google.com/drive/folders/1aZ-2n-_DjUDqTJuQUbqMWiohOCxcp2UO?usp=drive_link)
+   e baixe a pasta inteira (menu ⋮ da pasta → **Fazer download**). O Drive entrega um ou mais
+   arquivos `.zip`; se vierem vários (`...-001.zip`, `...-002.zip`), baixe todos.
+2. Na raiz deste repositório, crie a pasta `ViDDAR dataset` (com espaço e "dataset" minúsculo).
+3. Descompacte **todos** os `.zip` dentro de `ViDDAR dataset/`. Se vierem vários, extraia-os no mesmo
+   lugar, aceitando mesclar as pastas.
+4. Confira se a estrutura ficou assim (o zip já traz a pasta `ViDDAR Dataset`):
+
+   ```
+   ViDDAR dataset/
+   └── ViDDAR Dataset/
+       ├── obstruction_raw_img/            306 imagens
+       ├── obstruction_ar_img/             306 imagens
+       ├── obstruction_key_object_mask/    322 máscaras
+       ├── obstruction_ar_content_mask/     32 máscaras
+       ├── raw/                            115 imagens (manipulação, cruas)
+       ├── confusion_ar_img/               114 imagens (manipulação, aumentadas)
+       ├── obstruction_labels.csv
+       └── confusion_labels.csv
+   ```
+
+   Para conferir as contagens no PowerShell, a partir da raiz do repositório:
+
+   ```powershell
+   Get-ChildItem "ViDDAR dataset\ViDDAR Dataset" -Directory | ForEach-Object { "{0,-32} {1}" -f $_.Name, (Get-ChildItem $_.FullName -File).Count }
+   ```
+
+   Se a extração criar um nível a mais (por exemplo `ViDDAR dataset/ViDDAR Dataset/ViDDAR Dataset/`),
+   mova o conteúdo para cima até ficar como acima. Se preferir guardar o dataset em outro lugar, use
+   `scripts/prepare_viddar.py --dataset <caminho>`.
+
+A pasta `ViDDAR dataset/` está no `.gitignore` e nunca é enviada ao GitHub. Os arquivos gerados a
+partir dela (manifestos e máscaras) são criados no passo de preparação (seção 6).
 
 **2. Ambiente Python** (isolado; não use um ambiente conda base já cheio de pacotes):
 
