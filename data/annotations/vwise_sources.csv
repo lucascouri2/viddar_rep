@@ -1,0 +1,45 @@
+recorte,source,region,country,confidence,evidence,overlays
+1,youtube,latam,Brasil,alta,"placa ""Seja bem-vindo a Porto Velho""; placa de distâncias Catanduva/S. J. Rio Preto (SP); limite 40 km/h",nenhuma observada
+2,youtube,latam,hispano-americano (provável Peru),media,"placas em espanhol (REDUCIR VELOCIDAD, NO ADELANTAR, corredor de animales silvestres); estrada de montanha andina",nenhuma observada
+3,youtube,latam,Brasil e hispano-americano (provável Peru),media,"placa ""Via Verde Shopping"" (Rio Branco/AC) e placas em espanhol (INICIO DE PISTA SIMPLE, PARE)",nenhuma observada
+4,youtube,latam,Brasil,alta,posto BR; outdoor da prefeitura em português; carros e placas brasileiras,ícone de curtida do YouTube (esporádico)
+5,youtube,latam,Brasil,media,placas de proibido estacionar padrão brasileiro; cena urbana noturna,nenhuma observada
+6,youtube,latam,Brasil,alta,"logo do canal ""Dirigindo Conhecendo"" e rótulo ""Av. Recife""; placas de Recife (Justiça Federal)",logo do canal e nome da via (persistentes)
+7,youtube,latam,Brasil,alta,"placas de Recife (Graças, Torre, Madalena; Aeroporto, Imbiribeira)",nenhuma observada
+8,youtube,latam,Brasil,media,estrada de terra; carro brasileiro,nenhuma observada
+10,youtube,latam,Brasil,alta,"placa ""Atenção cruzamento com VLT"" e ""Estacionamento Rodoviária"" (Rio de Janeiro); táxis amarelos",botão INSCREVA-SE (esporádico)
+11,youtube,non_latam,EUA,media,"terminal portuário; placas em inglês (Caution railroad crossing, Slow down 5 MPH); caminhões americanos",nenhuma observada
+12,youtube,non_latam,EUA,media,terminal portuário; placas STOP e Slow down em inglês; caminhões americanos,cronômetro (persistente) e legenda em inglês
+13,youtube,non_latam,EUA,media,terminal portuário; placa Speed limit 35,nenhuma observada
+14,youtube,non_latam,EUA,alta,placa Port of Long Beach; contêineres Matson; placas em inglês,nenhuma observada
+15,youtube,non_latam,EUA,media,"portões ""LANE 7 SCALE""; caminhões americanos",nenhuma observada
+16,youtube,non_latam,EUA,baixa,pátio de contêineres; caminhões americanos,nenhuma observada
+17,youtube,latam,Brasil,media,estradas de terra vermelha; adesivo em português no painel do caminhão,nenhuma (adesivo físico no painel)
+18,youtube,latam,Brasil,alta,"placa ""44º Dist. Policial"" (São Paulo); ônibus e placas brasileiras",nenhuma observada
+19,youtube,latam,Brasil,alta,placa de carro brasileira; legenda em português,legenda de texto (autoescola)
+20,youtube,latam,Brasil (provável),baixa,estrada de terra vermelha,nenhuma observada
+21,youtube,latam,Brasil (provável),baixa,estrada de terra entre canavial e girassóis,nenhuma observada
+22,youtube,non_latam,EUA,alta,placa Sea-Tac Airport / Portland (Seattle),marca d'água ProArtInc
+23,youtube,latam,Brasil (provável),baixa,estrada de terra,nenhuma observada
+24,youtube,latam,Brasil (provável),baixa,estrada de terra com araucárias,nenhuma observada
+25,youtube,latam,Brasil (provável),baixa,estrada de terra,nenhuma observada
+26,youtube,latam,Brasil (provável),media,estrada de terra com araucárias (Sul do Brasil),nenhuma observada
+27,stock,non_latam,Leste Europeu (texto em cirílico),media,"terminal ferroviário/portuário de grãos; vagões com a palavra ""ЗЕРНО"" (grão) em cirílico; sem marca d'água",nenhuma observada
+28,stock,non_latam,Leste Europeu (texto em cirílico),media,"terminal ferroviário/portuário de grãos; vagões com a palavra ""ЗЕРНО"" (grão) em cirílico; sem marca d'água",nenhuma observada
+29,stock,unknown,indeterminado,baixa,interior de fábrica,marca d'água shutterstock
+30,stock,unknown,indeterminado,baixa,armazém,marca d'água shutterstock
+31,stock,unknown,indeterminado,baixa,armazém,marca d'água shutterstock
+32,stock,unknown,indeterminado,baixa,armazém,marca d'água shutterstock
+33,stock,unknown,indeterminado,baixa,armazém,marca d'água shutterstock
+34,stock,unknown,indeterminado,baixa,armazém,marca d'água shutterstock
+35,stock,unknown,indeterminado,baixa,"porto, vista de dentro de um contêiner (não é visão de veículo)",marca d'água shutterstock
+36,stock,unknown,indeterminado,baixa,"porto, empilhadeira e trabalhadora (não é visão de veículo)",marca d'água shutterstock
+37,stock,unknown,indeterminado,baixa,"porto, empilhadeira de contêiner",marca d'água shutterstock
+38,stock,unknown,indeterminado,baixa,"porto, trabalhadores em pé (não é visão de veículo)",marca d'água shutterstock
+39,stock,unknown,indeterminado,baixa,"porto, trabalhador em pé (não é visão de veículo)",marca d'água shutterstock
+40,stock,unknown,indeterminado,baixa,armazém,marca d'água shutterstock
+41,stock,non_latam,Europa (provável país nórdico),media,placa de advertência triangular padrão europeu com texto em língua nórdica; paisagem de fiordes,marca d'água shutterstock
+42,stock,non_latam,fora da América Latina (provável),baixa,montanhas com coníferas; placa de chevron de padrão europeu/russo,marca d'água shutterstock
+43,stock,non_latam,fora da América Latina (provável),baixa,mesma paisagem do recorte 42,marca d'água shutterstock
+44,other,latam,Brasil,alta,"fachadas e placas em português (Santander, Ótica Visão, ""Exclusivo motos"")",logo de canal (persistente)
+45,other,non_latam,Japão,alta,"Tóquio (Jingu-dori, Shibuya); placas e letreiros em japonês",legenda com nome da via (esporádica)

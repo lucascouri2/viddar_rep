@@ -14,3 +14,11 @@ results/
 
 # paper PDF (IEEE copyright); link to it from the README instead
 paper_viddar.pdf
+
+# LaTeX build artefacts
+report/**/*.aux
+report/**/*.log
+report/**/*.out
+
+# sign/driving dataset provided by the professor (3.6 GB, not ours to publish)
+data/placas/
