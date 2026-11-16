@@ -256,6 +256,15 @@ Jupyter, selecione o kernel **"Python (ViDDAR .venv)"** e rode as células em or
 
 Com `LIMIT = 10` os resultados vão para `results/_smoke/`, sem sobrescrever as execuções completas.
 
+O segundo notebook, [notebooks/benchmark_manipulacao.ipynb](notebooks/benchmark_manipulacao.ipynb),
+implementa o estudo de falsos positivos e negativos da manipulação descrito em
+[report/analise_fp_fn_manipulacao.md](report/analise_fp_fn_manipulacao.md):
+
+- a atribuição de cada erro a um fator ou à conclusão do VLM;
+- as variantes de prompt (`neutral`, `definition` e o modo decomposto), comparadas pelo teste de
+  McNemar;
+- o alinhamento geométrico (A_geo), que substitui o fator A do VLM por uma medida em pixels.
+
 ### Pela linha de comando (recomendado para execuções longas)
 
 ```bash
@@ -280,6 +289,8 @@ Opções principais:
 | `--limit N` | avalia só as N primeiras amostras (teste rápido) |
 | `--alpha` | limiar da Eq. 4 (padrão 0,25, como no artigo) |
 | `--key-prompt notebook` / `--prompt notebook` | usa os prompts dos notebooks originais em vez dos do artigo |
+| `--prompt neutral` / `--prompt definition` | variantes do prompt de manipulação para o estudo de falsos positivos (ver `viddar/prompts.py`) |
+| `--mode decomposed` | manipulação com uma chamada por fator e M = A ∧ S ∧ I calculado em código |
 | `--max-pixels` | resolução máxima enviada ao VLM (padrão 1.000.000 pixels por imagem) |
 | `--temperature T --seed S` | amostragem estocástica, para medir a variação entre execuções |
 | `--all-boxes` | usa a união de todas as caixas detectadas, em vez da de maior confiança |
@@ -313,14 +324,15 @@ viddar/                 pacote Python da reimplementação
   vlm.py                backends de VLM (transformers local, OpenAI), presets, cache de respostas
   grounding.py          Grounding DINO + SAM
   obstruction.py        ViDDAR e baselines da Tabela 1
-  manipulation.py       detecção de manipulação (Tabela 2) e extração de A, S, I
+  manipulation.py       detecção de manipulação (Tabela 2), extração de A, S, I e atribuição de erros
+  alignment.py          alinhamento geométrico A_geo (m_c × objeto-chave segmentado)
   parsing.py            pós-processamento das respostas; critério de reconhecimento do objeto-chave
   metrics.py            métricas binárias com IC de Wilson; métricas por grupo
   experiments.py        execução de experimentos (usada pelos scripts e pelo notebook)
   reporting.py          consolidação das execuções e números de referência do artigo
   viz.py                gráficos e visualização de amostras para o notebook
-notebooks/              experimentos_viddar.ipynb
-scripts/                prepare_viddar.py, run_obstruction.py, run_manipulation.py, summarize.py
+notebooks/              experimentos_viddar.ipynb, benchmark_manipulacao.ipynb
+scripts/                prepare_viddar.py, run_obstruction.py, run_manipulation.py, run_alignment.py, summarize.py
 tests/                  testes de parsing, máscaras e métricas
 data/manifests/         manifestos gerados e validation_report.json (versionados)
 data/content_masks/     máscaras m_c derivadas (geradas, fora do git)

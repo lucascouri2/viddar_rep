@@ -35,6 +35,11 @@ python -m venv .venv                       # Python 3.12
 # 3) manipulação de informação (Tabela 2)
 .venv/Scripts/python scripts/run_manipulation.py --vlm qwen3-vl-2b
 
+# 3b) estudo de falsos positivos (report/analise_fp_fn_manipulacao.md): variantes de prompt e
+#     alinhamento geométrico sobre uma execução pronta (só Grounding DINO + SAM, sem VLM)
+.venv/Scripts/python scripts/run_manipulation.py --vlm qwen3-vl-4b --prompt definition --mode decomposed
+.venv/Scripts/python scripts/run_alignment.py --run-dir results/manipulation/qwen3-vl-4b/paper
+
 # 4) tabelas consolidadas (com os números do artigo ao lado) -> results/summary.md
 .venv/Scripts/python scripts/summarize.py
 
@@ -66,7 +71,8 @@ End-to-End.
 | [viddar/vlm.py](viddar/vlm.py) | backends (transformers local / OpenAI), presets e cache |
 | [viddar/grounding.py](viddar/grounding.py) | Grounding DINO + SAM (equivalente ao `LangSAM` do notebook) |
 | [viddar/obstruction.py](viddar/obstruction.py) | ViDDAR e baselines da Tabela 1 |
-| [viddar/manipulation.py](viddar/manipulation.py) | detecção de manipulação (Tabela 2) + extração de A, S, I |
+| [viddar/manipulation.py](viddar/manipulation.py) | detecção de manipulação (Tabela 2) + extração de A, S, I; modo decomposto; atribuição de FP/FN e oráculo por fator |
+| [viddar/alignment.py](viddar/alignment.py) | alinhamento geométrico A_geo: medidas entre m_c e o objeto-chave, limiar por validação cruzada, decisão híbrida |
 | [viddar/parsing.py](viddar/parsing.py) | pós-processamento das respostas; critério de acerto do objeto-chave |
 | [viddar/metrics.py](viddar/metrics.py) | acurácia, precisão, recall, FPR/FNR com IC de Wilson; métricas por grupo |
 
@@ -93,6 +99,11 @@ Cada execução grava `predictions.csv` (uma linha por amostra, com a resposta b
 | Canny | C_o > C_r | Canny(100, 200) | limiares não informados |
 | Decisão de manipulação | último "yes"/"no" da resposta | igual; **também** calcula A∧S∧I a partir das respostas 3–5 | mostra inconsistências do VLM (ver §6) |
 | Retentativas | o notebook repetia a pergunta se a resposta contivesse "sorry", "however" etc. | não | com decodificação greedy a resposta seria a mesma; o filtro também enviesa o resultado |
+| Variantes de prompt de manipulação (estudo de FP) | só o prompt do §5.2.1 | `neutral` (sem "created by adding some virtual content" e sem "Think creatively…"); `definition` (definição de I do §3.2 acrescentada à pergunta 5) | testar se os FP vêm do viés do prompt (A1) ou da interpretação de I (A3); o prompt `paper` continua sendo a referência |
+| Modo decomposto | uma chamada com 6 perguntas; decisão = último "yes"/"no" | `--mode decomposed`: uma chamada para conteúdo e objeto-chave (≤ 4 palavras) e uma por fator; resposta começa por "yes"/"no"; `pred` = A ∧ S ∧ I em código (não há pergunta 6) | elimina o erro de conclusão do Qwen3-VL-2B e reduz o efeito halo (A2) |
+| Taxas de erro no estudo de FP | – | FPR = FP / benignos; FNR = FN / ataques; decisão ilegível num ataque conta como FN | denominadores fixos, comparáveis entre execuções |
+| Objeto-chave da manipulação | resposta livre à pergunta 2 | `extract_object_phrase`: "… is the black fan" → "black fan"; corta orações de lugar e alternativas ("tablet or a smartphone" → "tablet") | entrada do Grounding DINO no alinhamento geométrico |
+| Alinhamento geométrico (A_geo) | fator A julgado pelo VLM | m_c pela diferença de pixels (mesmo código da obstrução; os 114 pares são alinhados) e m_k = Grounding DINO + SAM no objeto citado pelo VLM, em I_r. Medida de decisão fixada antes: `gap_norm` = menor distância entre m_c e m_k ÷ maior lado da caixa de m_c; limiar por validação cruzada estratificada (5 partições, 20 repetições para a dispersão); sem detecção, vale o A do VLM | caminho C2 do estudo de FP; nenhum limiar é ajustado no conjunto inteiro |
 
 ## 5. Observações sobre o dataset (ver `data/manifests/validation_report.json`)
 

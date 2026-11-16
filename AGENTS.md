@@ -43,8 +43,10 @@ com log em `results/logs/<tarefa>_<vlm>.log`.
 
 - A lógica de execução fica em [viddar/experiments.py](viddar/experiments.py)
   (`ObstructionConfig`/`run_obstruction`, `ManipulationConfig`/`run_manipulation`, `load_run`).
-  Os scripts em `scripts/` e o notebook
-  [notebooks/experimentos_viddar.ipynb](notebooks/experimentos_viddar.ipynb) são camadas finas sobre
+  O estudo de falsos positivos da manipulação usa ainda `AlignmentConfig`/`run_alignment` e as
+  funções de atribuição de `viddar/manipulation.py`. Os scripts em `scripts/` e os notebooks
+  [notebooks/experimentos_viddar.ipynb](notebooks/experimentos_viddar.ipynb) e
+  [notebooks/benchmark_manipulacao.ipynb](notebooks/benchmark_manipulacao.ipynb) são camadas finas sobre
   essas funções. Não duplique lógica de experimento no notebook: se algo for útil nos dois, coloque em
   `viddar/` (gráficos e visualizações em [viddar/viz.py](viddar/viz.py), consolidação de resultados em
   [viddar/reporting.py](viddar/reporting.py)).
@@ -164,5 +166,5 @@ de tarefa, com teste em `tests/`, e exponha em `scripts/summarize.py`.
 - Scripts com `argparse`, docstring de módulo com exemplos de uso e saídas em
   `results/<tarefa>/<vlm>/<variante>/`.
 - Git: `results/`, `data/content_masks/`, `ViDDAR dataset/` e `.venv/` ficam fora do repositório;
-  `data/manifests/` é versionado. Não versione pesos de modelos nem o dataset. Faça commits em branch,
-  não direto na `main`.
+  `data/manifests/` é versionado. Não versione pesos de modelos nem o dataset. Trabalhe e faça commits
+  direto na `main`, sem branches separadas.

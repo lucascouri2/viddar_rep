@@ -54,6 +54,50 @@ def binary_metrics(y_true, y_pred) -> dict:
     }
 
 
+def mcnemar_exact(correct_a, correct_b) -> dict:
+    """Exact two-sided McNemar test for two classifiers evaluated on the same samples.
+
+    Only discordant samples count: b = A right and B wrong, c = A wrong and B right. Under H0 they
+    are Binomial(b + c, 0.5). Paired, so more powerful than Fisher's test on the marginal rates.
+    """
+    a = np.asarray(correct_a, dtype=bool)
+    b_ = np.asarray(correct_b, dtype=bool)
+    b, c = int((a & ~b_).sum()), int((~a & b_).sum())
+    n = b + c
+    if n == 0:
+        return {"a_only": b, "b_only": c, "p_value": 1.0}
+    tail = sum(math.comb(n, k) for k in range(min(b, c) + 1)) / 2 ** n
+    return {"a_only": b, "b_only": c, "p_value": min(1.0, 2 * tail)}
+
+
+def auc(scores, y) -> float:
+    """Area under the ROC curve via the Mann-Whitney statistic (ties count 1/2). Higher score = positive."""
+    s = np.asarray(scores, dtype=float)
+    y = np.asarray(y, dtype=int)
+    pos, neg = s[y == 1], s[y == 0]
+    if len(pos) == 0 or len(neg) == 0:
+        return float("nan")
+    greater = (pos[:, None] > neg[None, :]).sum()
+    ties = (pos[:, None] == neg[None, :]).sum()
+    return float((greater + 0.5 * ties) / (len(pos) * len(neg)))
+
+
+def auc_bootstrap_ci(scores, y, n_boot: int = 2000, seed: int = 0) -> tuple[float, float]:
+    """Percentile 95% interval of the AUC, resampling within each class (stratified bootstrap)."""
+    s = np.asarray(scores, dtype=float)
+    y = np.asarray(y, dtype=int)
+    rng = np.random.default_rng(seed)
+    pos, neg = np.flatnonzero(y == 1), np.flatnonzero(y == 0)
+    if len(pos) == 0 or len(neg) == 0:
+        return float("nan"), float("nan")
+    vals = []
+    for _ in range(n_boot):
+        idx = np.concatenate([rng.choice(pos, len(pos)), rng.choice(neg, len(neg))])
+        vals.append(auc(s[idx], y[idx]))
+    lo, hi = np.nanpercentile(vals, [2.5, 97.5])
+    return float(lo), float(hi)
+
+
 def metrics_by_group(df: pd.DataFrame, pred_col: str = "pred", label_col: str = "label",
                      group_col: str = "group") -> pd.DataFrame:
     rows = []

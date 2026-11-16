@@ -66,6 +66,29 @@ def clean_object_phrase(text: str) -> str:
     return phrase.lower()
 
 
+_IS_THE = re.compile(r"\b(?:is|are|would be)\s+(?:the|an|a)\s+([^.,;:\n]+)", re.IGNORECASE)
+# Inverted form: "The tablet is the 'key object' interacting with ..."
+_SUBJECT_IS_KEY = re.compile(r"^(?:the|an|a)?\s*(.+?)\s+(?:is|are)\s+(?:the|an|a)\s+['\"]?key object", re.IGNORECASE)
+_TRAILING_CLAUSE = re.compile(
+    r"\s+(?:which|that|where|on|in|at|with|next|near|beside|placed|located|positioned|mounted|attached"
+    r"|above|below|under|behind|inside|of the|or|displaying|showing)\b.*$", re.IGNORECASE)
+
+
+def extract_object_phrase(text: str) -> str:
+    """Noun phrase for Grounding DINO from a sentence such as "The key object ... is the black fan."
+
+    Short answers ("black fan") fall back to `clean_object_phrase`; trailing location clauses
+    ("the wall above the door") are cut so the detector receives the object itself.
+    """
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).replace("*", "")
+    first = next((ln.strip() for ln in text.splitlines() if ln.strip()), "")
+    first = re.sub(r"^.*?key object['\"]?\s*:\s*", "", first, flags=re.IGNORECASE)
+    m = _SUBJECT_IS_KEY.search(first) or _IS_THE.search(first)
+    phrase = m.group(1) if m else clean_object_phrase(first)
+    phrase = _TRAILING_CLAUSE.sub("", phrase)
+    return phrase.strip(" \"'`.:;,").lower()
+
+
 def parse_object_list(text: str, max_objects: int = 10) -> list[str]:
     """Parse the Greedy baseline's answer into individual object phrases."""
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)

@@ -48,7 +48,8 @@ class ObstructionConfig:
 class ManipulationConfig:
     manifest: str = "data/manifests/viddar_manipulation.csv"
     vlm: str = "qwen3-vl-2b"
-    prompt: str = "paper"  # "paper" | "notebook"
+    prompt: str = "paper"  # "paper" | "notebook" | "neutral" | "definition" (see prompts.MANIPULATION)
+    mode: str = "joint"  # "joint" (one six-question call, paper) | "decomposed" (one call per factor)
     max_pixels: int = 1_000_000
     max_new_tokens: int = 768
     temperature: float = 0.0
@@ -56,6 +57,22 @@ class ManipulationConfig:
     limit: int | None = None
     out: str = "results/manipulation"
     cache_dir: str = "results/cache"
+
+
+@dataclass
+class AlignmentConfig:
+    """Geometric alignment A_geo on top of a finished manipulation run (path C2)."""
+    run_dir: str = "results/manipulation/qwen3-vl-4b/paper"
+    manifest: str = "data/manifests/viddar_manipulation.csv"
+    feature: str = "gap_norm"  # decision feature, fixed in advance (see viddar.alignment.FEATURES)
+    contact_frac: float = 0.05
+    cv_folds: int = 5
+    cv_repeats: int = 20
+    seed: int = 0
+    detector: str = "IDEA-Research/grounding-dino-base"
+    sam: str = "facebook/sam-vit-base"
+    box_threshold: float = 0.3
+    text_threshold: float = 0.25
 
 
 @dataclass
@@ -142,18 +159,60 @@ def run_manipulation(cfg: ManipulationConfig) -> RunResult:
     if cfg.limit:
         df = df.head(cfg.limit)
 
+    if cfg.mode not in ("joint", "decomposed"):
+        raise ValueError(f"unknown mode {cfg.mode!r}; choose 'joint' or 'decomposed'")
     vlm = CachedVLM(cfg.vlm, cfg.cache_dir, cfg.max_pixels, cfg.max_new_tokens, cfg.temperature, cfg.seed)
     try:
-        res = manipulation.run(df, vlm, cfg.prompt)
+        if cfg.mode == "decomposed":
+            res = manipulation.run_decomposed(df, vlm, cfg.prompt)
+        else:
+            res = manipulation.run(df, vlm, cfg.prompt)
     finally:
         vlm.close()
 
     summary = manipulation.summarize(res)
     summary["config"] = asdict(cfg)
-    suffix = f"_t{cfg.temperature}_s{cfg.seed}" if cfg.temperature > 0 else ""
-    run_dir = Path(cfg.out) / _slug(cfg.vlm) / (cfg.prompt + suffix)
+    variant = manipulation_variant(cfg.prompt, cfg.mode)
+    if cfg.temperature > 0:
+        variant += f"_t{cfg.temperature}_s{cfg.seed}"
+    run_dir = Path(cfg.out) / _slug(cfg.vlm) / variant
     _write(run_dir, res, [c for c in res.columns if not c.endswith("_path")], summary)
-    return RunResult(f"manipulation/{cfg.prompt}", run_dir, res, summary)
+    return RunResult(f"manipulation/{variant}", run_dir, res, summary)
+
+
+def manipulation_variant(prompt: str, mode: str = "joint") -> str:
+    """Folder name of a manipulation run: the prompt key, plus "_decomposed" for the per-factor mode."""
+    return prompt if mode == "joint" else f"{prompt}_decomposed"
+
+
+def run_alignment(cfg: AlignmentConfig) -> RunResult:
+    """Measure A_geo for every pair of a manipulation run and evaluate the hybrid decision.
+
+    Reuses the VLM answers saved in `cfg.run_dir` (no VLM call); only Grounding DINO + SAM run.
+    Writes <run_dir>/alignment/{features.csv, predictions.csv, metrics.json, key_masks/}.
+    """
+    from . import alignment
+    from .grounding import GroundedSegmenter
+    from .parsing import extract_object_phrase
+
+    run = load_run(cfg.run_dir, cfg.manifest, "manipulation")
+    preds = run.predictions
+    if "key_phrase" not in preds.columns:  # runs made before key_phrase was stored
+        preds["key_phrase"] = preds["key_object"].fillna("").map(extract_object_phrase)
+    out_dir = Path(cfg.run_dir) / "alignment"
+    seg = GroundedSegmenter(cfg.detector, cfg.sam, cfg.box_threshold, cfg.text_threshold)
+    try:
+        features = alignment.measure(preds, seg, "key_phrase", cfg.contact_frac, out_dir / "key_masks")
+    finally:
+        seg.close()
+    hyb, summary = alignment.evaluate(preds, features, cfg.feature, cfg.cv_folds, cfg.cv_repeats, cfg.seed)
+    summary["config"] = asdict(cfg)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    features.to_csv(out_dir / "features.csv", index=False)
+    hyb[[c for c in hyb.columns if not c.endswith("_path")]].to_csv(out_dir / "predictions.csv", index=False)
+    with open(out_dir / "metrics.json", "w") as f:
+        json.dump(summary, f, indent=2, default=float)
+    return RunResult(f"alignment/{Path(cfg.run_dir).name}", out_dir, hyb, summary)
 
 
 # ------------------------------------------------------------------------------ reporting

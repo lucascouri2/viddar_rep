@@ -3,9 +3,13 @@
 Examples:
     python scripts/run_manipulation.py --vlm qwen3-vl-2b
     python scripts/run_manipulation.py --vlm qwen3-vl-2b --prompt notebook --limit 10
+    python scripts/run_manipulation.py --vlm qwen3-vl-4b --prompt definition --mode decomposed
 
-Outputs go to <out>/<vlm>/<prompt>/{predictions.csv, metrics.json, metrics_by_group.csv}. The same
-runner is available from Python as `viddar.experiments.run_manipulation`.
+Prompt variants (viddar/prompts.py): paper (literal), notebook, neutral (A1), definition (A3).
+--mode decomposed asks one question per call and computes M = A and S and I in code (A2).
+
+Outputs go to <out>/<vlm>/<prompt>[_decomposed]/{predictions.csv, metrics.json, metrics_by_group.csv}.
+The same runner is available from Python as `viddar.experiments.run_manipulation`.
 """
 
 from __future__ import annotations
@@ -15,7 +19,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from viddar import manipulation  # noqa: E402
+from viddar import manipulation, prompts  # noqa: E402
 from viddar.experiments import ManipulationConfig, manipulation_table, run_manipulation  # noqa: E402
 from viddar.metrics import flatten  # noqa: E402
 
@@ -25,7 +29,9 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--manifest", default=d.manifest)
     ap.add_argument("--vlm", default=d.vlm, help="preset name (see viddar/vlm.py) or HF model id")
-    ap.add_argument("--prompt", choices=["paper", "notebook"], default=d.prompt)
+    ap.add_argument("--prompt", choices=list(prompts.MANIPULATION), default=d.prompt)
+    ap.add_argument("--mode", choices=["joint", "decomposed"], default=d.mode,
+                    help="joint = the paper's six-question prompt; decomposed = one call per factor")
     ap.add_argument("--max-pixels", type=int, default=d.max_pixels, help="each image is downscaled to this area")
     ap.add_argument("--max-new-tokens", type=int, default=d.max_new_tokens)
     ap.add_argument("--temperature", type=float, default=d.temperature, help="0 = greedy decoding")
@@ -36,7 +42,7 @@ def main() -> None:
     args = ap.parse_args()
 
     result = run_manipulation(ManipulationConfig(**vars(args)))
-    print(f"\n{args.vlm} [{args.prompt}]")
+    print(f"\n{args.vlm} [{result.run_dir.name}]")
     print(manipulation_table(result).to_string(index=False, float_format=lambda x: f"{x:.4f}"))
     for f_ in manipulation.FACTOR_QUESTIONS:
         k = f"factor_{f_}"

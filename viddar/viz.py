@@ -91,6 +91,108 @@ def factor_rates(pred: pd.DataFrame):
     return fig, table
 
 
+# Manipulation variants in a fixed order, so each keeps its colour in every chart (path A of the report).
+MANIPULATION_VARIANTS = ["paper", "neutral", "definition", "paper_decomposed", "definition_decomposed"]
+
+
+def variant_color(variant: str) -> str:
+    base = variant.removesuffix("+A_geo")
+    i = MANIPULATION_VARIANTS.index(base) if base in MANIPULATION_VARIANTS else len(MANIPULATION_VARIANTS)
+    return SERIES[i % len(SERIES)]
+
+
+def operating_points(table: pd.DataFrame, title: str = ""):
+    """FPR (x) × FNR (y) of each variant of one model; (0, 0) is the ideal corner.
+
+    `table` needs columns variant, fpr, fnr; optional hybrid_fpr, hybrid_fnr draw a hollow marker for
+    the same variant with the geometric A (path C2) and an arrow from the VLM-only point.
+    The dashed diagonal FPR + FNR = 1 is a classifier that ignores the input (balanced accuracy 0.5).
+    """
+    fig, ax = plt.subplots(figsize=(6.4, 5.2), facecolor=SURFACE)
+    ax.plot([0, 1], [1, 0], color=INK_2, linewidth=1, linestyle="--")
+    ax.text(0.5, 0.51, "acaso (FPR + FNR = 1)", color=INK_2, fontsize=8, rotation=-45, rotation_mode="anchor",
+            ha="center", va="bottom")
+    for _, r in table.iterrows():
+        color = variant_color(r["variant"])
+        ax.scatter(r["fpr"], r["fnr"], s=70, color=color, edgecolor=SURFACE, linewidth=2, zorder=3,
+                   label=r["variant"])
+        ax.annotate(r["variant"], (r["fpr"], r["fnr"]), xytext=(7, 5), textcoords="offset points", fontsize=8,
+                    color=INK_2)
+        if "hybrid_fpr" in r and not pd.isna(r.get("hybrid_fpr")):
+            ax.annotate("", (r["hybrid_fpr"], r["hybrid_fnr"]), (r["fpr"], r["fnr"]),
+                        arrowprops={"arrowstyle": "->", "color": color, "linewidth": 1.2})
+            ax.scatter(r["hybrid_fpr"], r["hybrid_fnr"], s=70, facecolor=SURFACE, edgecolor=color, linewidth=2,
+                       zorder=3)
+    ax.set_xlim(-0.03, 1.03)
+    ax.set_ylim(-0.03, 1.03)
+    ax.set_aspect("equal")
+    ax.set_xlabel("FPR (benignos marcados como ataque)")
+    ax.set_ylabel("FNR (ataques não detectados)")
+    ax.set_title(title or "Pontos de operação por variante", loc="left", fontsize=11)
+    handles, labels = ax.get_legend_handles_labels()
+    if "hybrid_fpr" in table.columns and table["hybrid_fpr"].notna().any():
+        handles.append(plt.Line2D([], [], marker="o", linestyle="", markerfacecolor=SURFACE,
+                                  markeredgecolor=INK_2, markeredgewidth=2, markersize=8))
+        labels.append("vazado: com A geométrico (C2)")
+    ax.legend(handles, labels, frameon=False, fontsize=8, labelcolor=INK_2, loc="upper left",
+              bbox_to_anchor=(1.02, 1.0))
+    _style(ax)
+    fig.tight_layout()
+    cols = [c for c in ["variant", "fpr", "fnr", "hybrid_fpr", "hybrid_fnr"] if c in table.columns]
+    return fig, table[cols]
+
+
+def gap_strip(features: pd.DataFrame, feature: str = "gap_norm", title: str = ""):
+    """One dot per pair: the geometric feature split by the ground-truth A (pairs without detection omitted)."""
+    df = features.dropna(subset=[feature])
+    rng = np.random.default_rng(0)
+    fig, ax = plt.subplots(figsize=(7.5, 3.0), facecolor=SURFACE)
+    rows = []
+    for j, (a, name) in enumerate([(1, "A = 1 (alinhado)"), (0, "A = 0 (desalinhado)")]):
+        v = df.loc[df["A"] == a, feature].to_numpy()
+        ax.scatter(v, j + rng.uniform(-0.15, 0.15, len(v)), s=40, color=SERIES[j], edgecolor=SURFACE,
+                   linewidth=1.5, label=name, zorder=3)
+        rows.append({"rótulo": name, "n": len(v), "mediana": np.median(v) if len(v) else np.nan,
+                     "p25": np.percentile(v, 25) if len(v) else np.nan,
+                     "p75": np.percentile(v, 75) if len(v) else np.nan})
+    ax.set_yticks([0, 1], ["A = 1", "A = 0"])
+    ax.set_ylim(-0.6, 1.6)
+    ax.set_xlabel(feature)
+    ax.set_title(title or f"{feature} por rótulo de alinhamento", loc="left", fontsize=11)
+    ax.legend(frameon=False, fontsize=8, labelcolor=INK_2, loc="upper left", bbox_to_anchor=(1.02, 1.0))
+    _style(ax)
+    fig.tight_layout()
+    return fig, pd.DataFrame(rows)
+
+
+def show_alignment(row: pd.Series, key_mask_path: str | None, pad: float = 0.6, width: float = 9):
+    """I_a with the virtual content m_c and the detected key object m_k, cropped around both."""
+    from .data import load_mask
+
+    raw = np.asarray(load_rgb(row["raw_path"]))
+    ar = np.asarray(load_rgb(row["ar_path"]))
+    content = get_content_mask(row)
+    key = load_mask(key_mask_path) if key_mask_path else np.zeros_like(content)
+    union = content | key
+    ys, xs = np.nonzero(union) if union.any() else (np.array([0, ar.shape[0] - 1]), np.array([0, ar.shape[1] - 1]))
+    h, w = ys.max() - ys.min(), xs.max() - xs.min()
+    y0, y1 = max(0, int(ys.min() - pad * h)), min(ar.shape[0], int(ys.max() + pad * h))
+    x0, x1 = max(0, int(xs.min() - pad * w)), min(ar.shape[1], int(xs.max() + pad * w))
+    shown = _overlay(_overlay(raw, key, KEY_OVERLAY), content, CONTENT_OVERLAY)
+    fig, axes = plt.subplots(1, 2, figsize=(width, width * 0.6))
+    for ax, img, t in [(axes[0], ar, "I_a (vista do usuário)"),
+                       (axes[1], shown, "I_r + objeto detectado (verde) + conteúdo virtual (laranja)")]:
+        ax.imshow(img[y0:y1, x0:x1])
+        ax.set_title(t, fontsize=9, color=INK_2)
+        ax.axis("off")
+    info = [f"id={row['id']}", f"A={int(row['A'])}", f"objeto={row.get('key_phrase', '')!r}"]
+    if not pd.isna(row.get("gap_norm")):
+        info.append(f"gap_norm={row['gap_norm']:.2f}")
+    fig.suptitle(" · ".join(info), fontsize=9, color=INK)
+    fig.tight_layout()
+    return fig
+
+
 def _overlay(img: np.ndarray, mask: np.ndarray, color: str, alpha: float = 0.45) -> np.ndarray:
     rgb = np.array([int(color[i:i + 2], 16) for i in (1, 3, 5)], dtype=float)
     out = img.astype(float).copy()
