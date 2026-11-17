@@ -136,3 +136,55 @@ def test_verdict_needs_significance():
     assert verdict(5.0, 0.01) == "melhorou" and verdict(-5.0, 0.01) == "piorou"
     assert verdict(5.0, 0.2) == "sem diferença significativa"
     assert verdict(5.0, float("nan")) == "sem diferença significativa"
+
+
+def _run(rows):
+    """Joint-mode run with ids and the A ∧ S ∧ I column, as load_manipulation_runs returns it."""
+    df = _frame(rows)
+    df["id"] = [str(i) for i in range(len(df))]
+    df["pred_factor_rule"] = (df["pred_A"] & df["pred_S"] & df["pred_I"]).astype(int)
+    return df
+
+
+def test_baseline_comparison_and_balanced_accuracy():
+    from viddar.reporting import balanced_accuracy, baseline_comparison
+
+    df = _run([(1, 1, 1, 1, 1, 1, 1), (1, 1, 1, 1, 1, 1, 1), (0, 1, 1, 1, 1, 1, 1), (1, 1, 0, 1, 1, 0, 0)])
+    assert balanced_accuracy(df) == 0.75  # TPR 2/2, TNR 1/2
+    always_no = df.assign(pred=0)
+    assert balanced_accuracy(always_no) == 0.5
+    t = baseline_comparison({("m", "v"): df}).iloc[0]
+    assert t["ataques detectados (só a execução acerta)"] == 2
+    assert t["alarmes falsos ou sem decisão (só o trivial acerta)"] == 1
+    assert t["vs. detector trivial"] == "sem diferença significativa"
+
+
+def test_rule_comparison_isolates_the_conclusion_step():
+    from viddar.reporting import rule_comparison
+
+    # Question 6 says yes although a factor is no: wrong under Q6, right under A ∧ S ∧ I.
+    df = _run([(0, 1, 1, 0, 1, 1, 1), (1, 1, 1, 1, 1, 1, 1), (1, 0, 1, 1, 0, 1, 0)])
+    t = rule_comparison({("m", "paper"): df}).iloc[0]
+    assert t["Q6 coerente com Q3-5 (%)"] == round(100 * 2 / 3, 1)
+    assert (t["só A∧S∧I acerta"], t["só Q6 acerta"]) == (1, 0)
+    decomposed = df.assign(resp_A="yes")
+    assert rule_comparison({("m", "paper_decomposed"): decomposed}).empty
+
+
+def test_factor_discrimination_is_zero_for_a_constant_answer():
+    from viddar.reporting import factor_discrimination
+
+    df = _run([(0, 1, 1, 1, 1, 1, 1), (1, 1, 1, 1, 1, 1, 1), (1, 0, 0, 1, 0, 0, 0), (1, 1, 0, 1, 1, 1, 0)])
+    j = factor_discrimination({("m", "v"): df}).iloc[0]
+    assert j["J A"] == 0.0  # always yes
+    assert j["J S"] == 1.0  # perfect
+    assert j["J I"] == 0.5  # right on I = 1, half right on I = 0
+
+
+def test_pairwise_comparison():
+    from viddar.reporting import pairwise_comparison
+
+    a = _run([(1, 1, 1, 1, 1, 1, 1), (1, 1, 0, 1, 1, 0, 0)])
+    b = a.assign(pred=[0, 0])
+    t = pairwise_comparison({("m1", "v"): a, ("m2", "v"): b}, [("m1", "v"), ("m2", "v")]).iloc[0]
+    assert (t["só 1 acerta"], t["só 2 acerta"]) == (1, 0) and t["resultado"] == "sem diferença significativa"

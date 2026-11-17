@@ -21,6 +21,11 @@ PRESETS: dict[str, dict] = {
     "qwen2.5-vl-3b": {"model_id": "Qwen/Qwen2.5-VL-3B-Instruct"},
     # The LLaVA model used in the paper; needs 4-bit quantisation (bitsandbytes) to fit 12 GB.
     "llava-next-8b-4bit": {"model_id": "llava-hf/llama3-llava-next-8b-hf", "load_in_4bit": True},
+    # Benchmark extension: larger models of another size (Qwen3-VL 8B, same family as 2B/4B) and another
+    # family (Gemma 4 12B). Neither fits 12 GB in bf16, so both load in 4 bits like the LLaVA preset.
+    # The response cache is keyed by model id, not quantisation: do not run these ids unquantised.
+    "qwen3-vl-8b-4bit": {"model_id": "Qwen/Qwen3-VL-8B-Instruct", "load_in_4bit": True},
+    "gemma4-12b-4bit": {"model_id": "google/gemma-4-12B-it", "load_in_4bit": True, "cast_inputs": True},
     "gpt-4o": {"backend": "openai", "model_id": "gpt-4o-2024-08-06"},
 }
 
@@ -47,6 +52,7 @@ class HFVLM:
         max_new_tokens: int = 512,
         load_in_4bit: bool = False,
         dtype: str = "bfloat16",
+        cast_inputs: bool = False,
     ):
         import torch
         from transformers import AutoModelForImageTextToText, AutoProcessor
@@ -54,6 +60,9 @@ class HFVLM:
         self.model_id = model_id
         self.max_pixels = max_pixels
         self.max_new_tokens = max_new_tokens
+        # Some vision towers (Gemma 4) do not cast the processor's float32 pixel values to the model
+        # dtype themselves. Off by default: casting changes the inputs of models already in the cache.
+        self.input_dtype = getattr(torch, dtype) if cast_inputs else None
         kwargs: dict = {"dtype": getattr(torch, dtype), "device_map": "cuda"}
         if load_in_4bit:
             from transformers import BitsAndBytesConfig
@@ -78,6 +87,8 @@ class HFVLM:
             messages, add_generation_prompt=True, tokenize=False, **template_kwargs
         )
         inputs = self.processor(text=[text], images=images or None, return_tensors="pt").to(self.model.device)
+        if self.input_dtype is not None:  # floating tensors only (pixel values); ids stay integer
+            inputs = inputs.to(self.input_dtype)
         gen_kwargs: dict = {"max_new_tokens": self.max_new_tokens}
         if temperature > 0:
             torch.manual_seed(seed)

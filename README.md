@@ -209,7 +209,7 @@ python -m venv .venv
 # Windows: .venv\Scripts\python   ·   Linux/macOS: .venv/bin/python
 .venv/Scripts/python -m pip install torch==2.14.0 torchvision==0.29.0 --index-url https://download.pytorch.org/whl/cu126
 .venv/Scripts/python -m pip install -r requirements.txt
-# opcional, para o preset llava-next-8b-4bit:
+# opcional, para os presets em 4 bits (llava-next-8b-4bit, qwen3-vl-8b-4bit, gemma4-12b-4bit):
 .venv/Scripts/python -m pip install bitsandbytes==0.50.2
 # kernel do Jupyter para o notebook de experimentos:
 .venv/Scripts/python -m ipykernel install --user --name viddar --display-name "Python (ViDDAR .venv)"
@@ -265,6 +265,11 @@ implementa o estudo de falsos positivos e negativos da manipulação descrito em
   precisão e recall (como na Tabela 2 do artigo) e pelo teste de McNemar;
 - o alinhamento geométrico (A_geo), que substitui o fator A do VLM por uma medida em pixels.
 
+O terceiro, [notebooks/benchmark_obstrucao.ipynb](notebooks/benchmark_obstrucao.ipynb), roda a detecção
+de obstrução (Tabela 1 do artigo) com os mesmos VLMs, sem variantes de prompt, e atribui cada erro do
+ViDDAR à etapa do pipeline que falhou (reconhecimento do objeto, detecção ou limiar α), usando o
+`prior` (nome verdadeiro do objeto) para separar os erros do VLM dos erros posteriores a ele.
+
 ### Pela linha de comando (recomendado para execuções longas)
 
 ```bash
@@ -285,7 +290,7 @@ Opções principais:
 
 | Opção | Efeito |
 |---|---|
-| `--vlm` | preset (`qwen3-vl-2b`, `qwen3-vl-4b`, `qwen2.5-vl-3b`, `llava-next-8b-4bit`, `gpt-4o`) ou qualquer id do Hugging Face compatível com `AutoModelForImageTextToText` |
+| `--vlm` | preset (`qwen3-vl-2b`, `qwen3-vl-4b`, `qwen2.5-vl-3b`, `llava-next-8b-4bit`, `qwen3-vl-8b-4bit`, `gemma4-12b-4bit`, `gpt-4o`) ou qualquer id do Hugging Face compatível com `AutoModelForImageTextToText` |
 | `--limit N` | avalia só as N primeiras amostras (teste rápido) |
 | `--alpha` | limiar da Eq. 4 (padrão 0,25, como no artigo) |
 | `--key-prompt notebook` / `--prompt notebook` | usa os prompts dos notebooks originais em vez dos do artigo |
@@ -331,7 +336,7 @@ viddar/                 pacote Python da reimplementação
   experiments.py        execução de experimentos (usada pelos scripts e pelo notebook)
   reporting.py          consolidação das execuções e números de referência do artigo
   viz.py                gráficos e visualização de amostras para o notebook
-notebooks/              experimentos_viddar.ipynb, benchmark_manipulacao.ipynb
+notebooks/              experimentos_viddar.ipynb, benchmark_manipulacao.ipynb, benchmark_obstrucao.ipynb
 scripts/                prepare_viddar.py, run_obstruction.py, run_manipulation.py, run_alignment.py, summarize.py
 tests/                  testes de parsing, máscaras e métricas
 data/manifests/         manifestos gerados e validation_report.json (versionados)

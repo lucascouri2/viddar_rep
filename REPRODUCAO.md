@@ -54,11 +54,13 @@ enviada ao VLM), `--temperature T --seed S` (amostragem estocástica para medir 
 
 **VLMs:** `--vlm` aceita os presets de [viddar/vlm.py](viddar/vlm.py) (`qwen3-vl-2b` padrão,
 `qwen3-vl-4b`, `qwen2.5-vl-3b`, `llava-next-8b-4bit` — o LLaVA do artigo, exige `bitsandbytes` —,
+`qwen3-vl-8b-4bit` e `gemma4-12b-4bit` — extensão do benchmark, também em 4 bits —,
 `gpt-4o` via API com `OPENAI_API_KEY`) ou qualquer id do Hugging Face compatível com
 `AutoModelForImageTextToText`.
 
 **Cache:** toda resposta do VLM fica em `results/cache/<modelo>.jsonl`, indexada por
-modelo + prompt + hash das imagens + parâmetros de geração. Re-executar (por exemplo com outro α) não
+modelo + prompt + hash das imagens + parâmetros de geração. A quantização não entra na chave: um
+mesmo id do Hugging Face deve rodar sempre com a mesma quantização (os presets `*-4bit` garantem isso). Re-executar (por exemplo com outro α) não
 consulta o modelo de novo; o passo de identificação do objeto-chave é compartilhado entre ViDDAR e
 End-to-End.
 
@@ -104,6 +106,9 @@ Cada execução grava `predictions.csv` (uma linha por amostra, com a resposta b
 | Taxas de erro no estudo de FP | – | FPR = FP / benignos; FNR = FN / ataques; decisão ilegível num ataque conta como FN | denominadores fixos, comparáveis entre execuções |
 | Objeto-chave da manipulação | resposta livre à pergunta 2 | `extract_object_phrase`: "… is the black fan" → "black fan"; corta orações de lugar e alternativas ("tablet or a smartphone" → "tablet") | entrada do Grounding DINO no alinhamento geométrico |
 | Ganho de uma variante | – | acurácia, precisão e recall (Tabela 2 do artigo) + FPR/FNR; "melhorou"/"piorou" só com McNemar p < 0,05 (`reporting.gain_table`) | mesma métrica do artigo, com teste pareado |
+| VLMs do benchmark estendido | GPT-4o e LLaVA-Next-8b | Qwen3-VL 2B, 4B e 8B, LLaVA-Next-8B e Gemma 4 12B; os de 8B ou mais em 4 bits (NF4, bitsandbytes), com o mesmo protocolo e as mesmas variantes | modelos abertos que cabem em 12 GB e aceitam duas imagens por conversa; Llama 3.2 Vision ficou de fora por ser treinado com uma imagem por prompt |
+| Resolução no Gemma 4 | – | o processador do Gemma 4 usa um orçamento fixo de 280 tokens por imagem, menor que o dos Qwen (≤ 1 MP); o preset converte os `pixel_values` para bf16 (`cast_inputs`), o que a torre de visão dele não faz sozinha | é o comportamento padrão do modelo; mudar o orçamento seria uma variante à parte |
+| Extração do objeto-chave para o C2 | – | a mesma regra para todos os modelos; respostas com parênteses ("black speaker (a small …") chegam truncadas ao Grounding DINO, que ainda assim detecta o objeto | mudar a regra alteraria o C2 dos modelos já executados |
 | Alinhamento geométrico (A_geo) | fator A julgado pelo VLM | m_c pela diferença de pixels (mesmo código da obstrução; os 114 pares são alinhados) e m_k = Grounding DINO + SAM no objeto citado pelo VLM, em I_r. Medida de decisão fixada antes: `gap_norm` = menor distância entre m_c e m_k ÷ maior lado da caixa de m_c; limiar por validação cruzada estratificada (5 partições, 20 repetições para a dispersão); sem detecção, vale o A do VLM | caminho C2 do estudo de FP; nenhum limiar é ajustado no conjunto inteiro |
 
 ## 5. Observações sobre o dataset (ver `data/manifests/validation_report.json`)

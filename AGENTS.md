@@ -45,8 +45,10 @@ com log em `results/logs/<tarefa>_<vlm>.log`.
   (`ObstructionConfig`/`run_obstruction`, `ManipulationConfig`/`run_manipulation`, `load_run`).
   O estudo de falsos positivos da manipulação usa ainda `AlignmentConfig`/`run_alignment` e as
   funções de atribuição de `viddar/manipulation.py`. Os scripts em `scripts/` e os notebooks
-  [notebooks/experimentos_viddar.ipynb](notebooks/experimentos_viddar.ipynb) e
-  [notebooks/benchmark_manipulacao.ipynb](notebooks/benchmark_manipulacao.ipynb) são camadas finas sobre
+  [notebooks/experimentos_viddar.ipynb](notebooks/experimentos_viddar.ipynb),
+  [notebooks/benchmark_manipulacao.ipynb](notebooks/benchmark_manipulacao.ipynb) e
+  [notebooks/benchmark_obstrucao.ipynb](notebooks/benchmark_obstrucao.ipynb) (atribuição de erros em
+  `obstruction.error_causes`) são camadas finas sobre
   essas funções. Não duplique lógica de experimento no notebook: se algo for útil nos dois, coloque em
   `viddar/` (gráficos e visualizações em [viddar/viz.py](viddar/viz.py), consolidação de resultados em
   [viddar/reporting.py](viddar/reporting.py)).

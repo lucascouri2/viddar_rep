@@ -158,3 +158,62 @@ def summarize(df: pd.DataFrame, method: str, alpha: float,
             for a in alphas
         }
     return out
+
+
+# ------------------------------------------------------------------ error attribution
+# Which stage of the pipeline (Sec. 4.1) made a wrong decision. In order:
+#   illegible     the end-to-end answer has no yes/no;
+#   no_detection  Grounding DINO found nothing for the VLM's phrase (ratio 0, so only FNs);
+#   wrong_object  the segmented region is not the key object (IoU with the true mask < 0.5): the VLM
+#                 named another object, or the detector picked another one;
+#   threshold     the right object was segmented, but its ratio |m_k ∩ m_c| / |m_k| fell on the wrong
+#                 side of alpha (imprecise mask, or a label close to the threshold).
+# Methods without masks (end_to_end, saliency, canny) only get "decision".
+OBSTRUCTION_CAUSES = ("illegible", "no_detection", "wrong_object", "threshold", "decision")
+GROUNDED_IOU = 0.5
+
+
+def error_causes(df: pd.DataFrame) -> pd.Series:
+    """'correct' or '<FP|FN>:<cause>' for every sample of one obstruction run."""
+    out = []
+    for _, r in df.iterrows():
+        pred = r["pred"]
+        if not pd.isna(pred) and int(pred) == int(r["label"]):
+            out.append("correct")
+            continue
+        kind = "FN" if int(r["label"]) == 1 else "FP"
+        if pd.isna(pred):
+            cause = "illegible"
+        elif "key_iou" not in r or pd.isna(r.get("key_iou")):
+            cause = "decision"
+        elif r.get("n_detections", 1) == 0:
+            cause = "no_detection"
+        elif r["key_iou"] < GROUNDED_IOU:
+            cause = "wrong_object"
+        else:
+            cause = "threshold"
+        out.append(f"{kind}:{cause}")
+    return pd.Series(out, index=df.index)
+
+
+def cause_table(df: pd.DataFrame, prior: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Count of FP and FN per cause; with the `prior` run (true object name), also how many of those
+    samples the pipeline still gets wrong when it is given the right name (a limit of detector, SAM,
+    alpha or label rather than of the VLM)."""
+    causes = error_causes(df)
+    prior_wrong = None
+    if prior is not None:
+        p = prior.set_index("id")
+        prior_ok = (p["pred"] == p["label"]).reindex(df["id"]).fillna(False).to_numpy()
+        prior_wrong = pd.Series(~prior_ok, index=df.index)
+    rows = []
+    for kind, n in (("FP", int((df["label"] == 0).sum())), ("FN", int((df["label"] == 1).sum()))):
+        for cause in OBSTRUCTION_CAUSES:
+            hit = causes == f"{kind}:{cause}"
+            if not hit.any():
+                continue
+            row = {"error": kind, "cause": cause, "k": int(hit.sum()), "n": n}
+            if prior_wrong is not None:
+                row["prior_also_wrong"] = int((hit & prior_wrong).sum())
+            rows.append(row)
+    return pd.DataFrame(rows)
