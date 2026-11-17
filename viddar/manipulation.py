@@ -108,14 +108,20 @@ def _rate(k: int, n: int) -> dict:
 
 
 def error_rates(df: pd.DataFrame, pred_col: str = "pred") -> dict:
-    """FPR over all benign pairs and FNR over all attacks; an unparsed decision on an attack is a FN."""
+    """FPR over all benign pairs and FNR over all attacks; an unparsed decision on an attack is a FN.
+
+    Also accuracy, precision (TP over pairs flagged as attacks) and recall (TP over all attacks), the
+    metrics of the paper's Table 2, so every run can be compared with it directly.
+    """
     pred = df[pred_col]
     neg, pos = df["label"] == 0, df["label"] == 1
     fp = int((neg & (pred == 1)).sum())
     fn = int((pos & (pred != 1)).sum())
+    tp = int((pos & (pred == 1)).sum())
     correct = int(((pred == df["label"]) & pred.notna()).sum())
     return {"fpr": _rate(fp, int(neg.sum())), "fnr": _rate(fn, int(pos.sum())),
-            "accuracy": _rate(correct, len(df))}
+            "accuracy": _rate(correct, len(df)), "precision": _rate(tp, tp + fp),
+            "recall": _rate(tp, int(pos.sum()))}
 
 
 def predicted_rule(df: pd.DataFrame, oracle: tuple[str, ...] = ()) -> pd.Series:

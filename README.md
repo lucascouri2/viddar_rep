@@ -261,8 +261,8 @@ implementa o estudo de falsos positivos e negativos da manipulação descrito em
 [report/analise_fp_fn_manipulacao.md](report/analise_fp_fn_manipulacao.md):
 
 - a atribuição de cada erro a um fator ou à conclusão do VLM;
-- as variantes de prompt (`neutral`, `definition` e o modo decomposto), comparadas pelo teste de
-  McNemar;
+- as variantes de prompt (`neutral`, `definition` e o modo decomposto), comparadas por acurácia,
+  precisão e recall (como na Tabela 2 do artigo) e pelo teste de McNemar;
 - o alinhamento geométrico (A_geo), que substitui o fator A do VLM por uma medida em pixels.
 
 ### Pela linha de comando (recomendado para execuções longas)

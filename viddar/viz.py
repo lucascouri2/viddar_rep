@@ -109,15 +109,26 @@ def operating_points(table: pd.DataFrame, title: str = ""):
     The dashed diagonal FPR + FNR = 1 is a classifier that ignores the input (balanced accuracy 0.5).
     """
     fig, ax = plt.subplots(figsize=(6.4, 5.2), facecolor=SURFACE)
-    ax.plot([0, 1], [1, 0], color=INK_2, linewidth=1, linestyle="--")
-    ax.text(0.5, 0.51, "acaso (FPR + FNR = 1)", color=INK_2, fontsize=8, rotation=-45, rotation_mode="anchor",
-            ha="center", va="bottom")
+    # The chance line is named in the legend, not on the plot, where it collided with point labels.
+    ax.plot([0, 1], [1, 0], color=INK_2, linewidth=1, linestyle="--", label="acaso (FPR + FNR = 1)")
+    # Variants with the same operating point (e.g. paper_decomposed and definition_decomposed, whose
+    # decisions are identical) share one direct label instead of overprinting each other.
+    point_labels: dict[tuple[float, float], list[str]] = {}
+    for _, r in table.iterrows():
+        point_labels.setdefault((round(r["fpr"], 6), round(r["fnr"], 6)), []).append(r["variant"])
+    # Labels near the right edge go to the left of the point; labels of nearby points are stacked
+    # vertically (12 pt apart) instead of overprinting.
+    placed: list[tuple[float, float, int]] = []
+    for (x, y), names in sorted(point_labels.items(), key=lambda kv: -kv[0][1]):
+        left = x > 0.6
+        shift = sum(1 for px, py, _ in placed if abs(py - y) < 0.06 and abs(px - x) < 0.3)
+        placed.append((x, y, shift))
+        ax.annotate(" = ".join(names), (x, y), xytext=(-7 if left else 7, 5 - 12 * shift),
+                    textcoords="offset points", fontsize=8, color=INK_2, ha="right" if left else "left")
     for _, r in table.iterrows():
         color = variant_color(r["variant"])
         ax.scatter(r["fpr"], r["fnr"], s=70, color=color, edgecolor=SURFACE, linewidth=2, zorder=3,
                    label=r["variant"])
-        ax.annotate(r["variant"], (r["fpr"], r["fnr"]), xytext=(7, 5), textcoords="offset points", fontsize=8,
-                    color=INK_2)
         if "hybrid_fpr" in r and not pd.isna(r.get("hybrid_fpr")):
             ax.annotate("", (r["hybrid_fpr"], r["hybrid_fnr"]), (r["fpr"], r["fnr"]),
                         arrowprops={"arrowstyle": "->", "color": color, "linewidth": 1.2})

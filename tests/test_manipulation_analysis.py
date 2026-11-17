@@ -4,6 +4,7 @@ import pandas as pd
 from viddar import prompts
 from viddar.alignment import cv_predict, geometry_features, hybrid
 from viddar.manipulation import cause_table, error_causes, error_rates, factor_rates, oracle_rates, run_decomposed
+from viddar.reporting import verdict
 from viddar.metrics import auc, mcnemar_exact
 from viddar.parsing import extract_object_phrase
 
@@ -116,3 +117,22 @@ def test_run_decomposed_computes_the_decision_in_code():
     r = out.iloc[0]
     assert (r["pred_A"], r["pred_S"], r["pred_I"], r["pred"]) == (0, 1, 1, 0)
     assert r["key_phrase"] == "black speaker" and r["virtual_content"] == "green plant"
+
+
+def test_error_rates_has_the_paper_metrics():
+    df = _frame([
+        (1, 1, 1, 1, 1, 1, 1),  # TP
+        (1, 1, 1, 1, 1, 0, 0),  # FN
+        (0, 1, 1, 1, 1, 1, 1),  # FP
+        (1, 1, 0, 1, 1, 0, 0),  # TN
+    ])
+    r = error_rates(df)
+    assert (r["precision"]["k"], r["precision"]["n"]) == (1, 2)  # TP over pairs flagged as attacks
+    assert (r["recall"]["k"], r["recall"]["n"]) == (1, 2)  # TP over attacks
+    assert r["accuracy"]["value"] == 0.5
+
+
+def test_verdict_needs_significance():
+    assert verdict(5.0, 0.01) == "melhorou" and verdict(-5.0, 0.01) == "piorou"
+    assert verdict(5.0, 0.2) == "sem diferença significativa"
+    assert verdict(5.0, float("nan")) == "sem diferença significativa"

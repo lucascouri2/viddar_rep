@@ -125,16 +125,20 @@ o melhor pela FPR, **deixa passar 93% dos ataques**.
 Cada célula mostra o número de erros sobre o total de pares em que aquele erro poderia ocorrer. Assim,
 os modelos ficam comparáveis entre si.
 
+Nas tabelas, **"errou X"** significa que o modelo classificou errado o fator X:
+- **num falso positivo**, o fator X é falso (X = 0) e o modelo disse "sim";
+- **num falso negativo**, todos os fatores são verdadeiros (é um ataque) e o modelo disse "não" a X.
+
 **Falsos positivos** (70 pares benignos):
 
 | Causa | Pares em que pode ocorrer | Qwen3-VL-2B | Qwen3-VL-4B | LLaVA-8B |
 |---|---|---|---|---|
 | Ilegível | 70 | 0/70 | 0/70 | 0/70 |
 | Erro de conclusão | 70 | **68/70** | 0/70 | 0/70 |
-| Percepção: aceitou A nos pares desalinhados (só A = 0) | 32 | 0/32 | 2/32 | **31/32** |
-| Percepção: aceitou S nos pares com textura artificial (só S = 0) | 25 | 0/25 | 1/25 | **22/25** |
-| Percepção: aceitou I nos pares que não sugerem nada falso (só I = 0) | 11 | 0/11 | 0/11 | **8/11** |
-| Percepção: aceitou A e S nos pares com A = 0 e S = 0 | 2 | 0/2 | 0/2 | 2/2 |
+| Percepção: errou A (pares desalinhados, só A = 0) | 32 | 0/32 | 2/32 | **31/32** |
+| Percepção: errou S (textura artificial, só S = 0) | 25 | 0/25 | 1/25 | **22/25** |
+| Percepção: errou I (não sugere nada falso, só I = 0) | 11 | 0/11 | 0/11 | **8/11** |
+| Percepção: errou A e S (pares com A = 0 e S = 0) | 2 | 0/2 | 0/2 | 2/2 |
 | **Total de FP** | **70** | **68/70 (97,1%)** | **3/70 (4,3%)** | **63/70 (90,0%)** |
 
 **Falsos negativos** (44 ataques):
@@ -143,10 +147,30 @@ os modelos ficam comparáveis entre si.
 |---|---|---|---|---|
 | Ilegível | 44 | 2/44 | 0/44 | 0/44 |
 | Erro de conclusão | 44 | 0/44 | 0/44 | 0/44 |
-| Percepção: rejeitou só I | 44 | 0/44 | **38/44** | 0/44 |
-| Percepção: rejeitou A e S | 44 | 0/44 | 3/44 | **7/44** |
-| Percepção: rejeitou só A ou só S | 44 | 0/44 | 0/44 | 0/44 |
+| Percepção: errou só I | 44 | 0/44 | **38/44** | 0/44 |
+| Percepção: errou A e S | 44 | 0/44 | 3/44 | **7/44** |
+| Percepção: errou só A ou só S | 44 | 0/44 | 0/44 | 0/44 |
 | **Total de FN** | **44** | **2/44 (4,5%)** | **41/44 (93,2%)** | **7/44 (15,9%)** |
+
+**Visão geral: todos os erros (FP + FN) por causa**
+
+Cada célula traz o total de erros com aquela causa e quantos deles são FP e FN. A última linha soma
+todos os erros do modelo (de 114 pares).
+
+| Causa | Qwen3-VL-2B | Qwen3-VL-4B | LLaVA-8B |
+|---|---|---|---|
+| Ilegível | 2 (FP 0 + FN 2) | 0 | 0 |
+| Erro de conclusão | **68** (FP 68 + FN 0) | 0 | 0 |
+| Percepção: errou só A | 0 | 2 (FP 2 + FN 0) | **31** (FP 31 + FN 0) |
+| Percepção: errou só S | 0 | 1 (FP 1 + FN 0) | **22** (FP 22 + FN 0) |
+| Percepção: errou só I | 0 | **38** (FP 0 + FN 38) | 8 (FP 8 + FN 0) |
+| Percepção: errou A e S | 0 | 3 (FP 0 + FN 3) | 9 (FP 2 + FN 7) |
+| **Total de erros** | **70** (FP 68 + FN 2) | **44** (FP 3 + FN 41) | **70** (FP 63 + FN 7) |
+| Causa dominante | conclusão (97% dos erros) | errou I (86%) | errou A ou S (89%) |
+
+A tabela mostra de forma direta que cada modelo tem uma causa dominante diferente, e que a causa vem
+junto com um tipo de erro: a conclusão e a percepção de A e S geram FP; a percepção de I no
+Qwen3-VL-4B gera FN.
 
 **Interpretação**
 
@@ -175,13 +199,46 @@ os modelos ficam comparáveis entre si.
 
 ### 2.4 Oráculo contrafactual
 
-FPR / FNR, em %, com M = A ∧ S ∧ I calculado a partir das respostas 3–5:
+**O que é.** O oráculo responde à pergunta: *"e se o modelo acertasse o fator X, mantendo as outras
+respostas como estão?"*. Para isso, trocamos a resposta do modelo sobre X pelo rótulo verdadeiro do
+dataset, mantemos as respostas sobre os outros dois fatores e recalculamos M = A ∧ S ∧ I. Nenhum
+modelo é consultado de novo: é uma simulação feita sobre as respostas já guardadas.
 
-| Modelo | Sem oráculo | Oráculo em A | Oráculo em S | Oráculo em I |
-|---|---|---|---|---|
-| Qwen3-VL-2B | 0,0 / 100 | 0,0 / 100 | 0,0 / 100 | 84,3 / 4,5 |
-| Qwen3-VL-4B | 4,3 / 93,2 | 1,4 / 93,2 | 2,9 / 93,2 | **47,1 / 6,8** |
-| LLaVA-8B | 90,0 / 15,9 | **42,9** / 15,9 | 55,7 / 15,9 | 78,6 / 15,9 |
+**Para que serve.** A diferença entre "sem oráculo" e "oráculo em X" é o **ganho máximo** que se pode
+esperar de uma intervenção que corrija só o fator X. Por exemplo, o oráculo em A é o teto do
+componente geométrico (C2), que só melhora A. Se o oráculo num fator não muda o resultado, não adianta
+investir nele enquanto os outros fatores continuarem errados.
+
+**Como ler.** Cada célula é FPR / FNR, em %. A coluna "sem oráculo" usa M = A ∧ S ∧ I calculado a
+partir das respostas 3–5, e não a resposta 6. Por isso, no Qwen3-VL-2B ela difere da Seção 2.1 (0 / 100
+em vez de 97,1 / 4,5): aplicada às próprias respostas desse modelo, a regra nunca dispara.
+
+| Modelo | Sem oráculo | Oráculo em A | Oráculo em S | Oráculo em I | Oráculo em A e S | Oráculo em A e I | Oráculo em S e I |
+|---|---|---|---|---|---|---|---|
+| Qwen3-VL-2B | 0,0 / 100 | 0,0 / 100 | 0,0 / 100 | 84,3 / 4,5 | 0,0 / 100 | 35,7 / 4,5 | 45,7 / 4,5 |
+| Qwen3-VL-4B | 4,3 / 93,2 | 1,4 / 93,2 | 2,9 / 93,2 | **47,1 / 6,8** | 10,0 / 86,4 | 15,7 / 6,8 | 30,0 / 6,8 |
+| LLaVA-8B | 90,0 / 15,9 | **42,9** / 15,9 | 55,7 / 15,9 | 78,6 / 15,9 | **15,7 / 0,0** | 31,4 / 15,9 | 44,3 / 15,9 |
+
+**O que os resultados mostram.**
+
+- **Nenhum fator corrigido sozinho leva a um bom detector.** Em todos os modelos, mesmo o melhor
+  oráculo de um fator deixa a FPR ou a FNR acima de 40%. Os modelos erram mais de um julgamento ao mesmo
+  tempo.
+- **Qwen3-VL-2B: o problema não está num fator.** Corrigir A ou S não muda nada (0 / 100), porque o
+  modelo nega I em todos os pares e a regra nunca dispara. Corrigir I faz o contrário: como ele aceita
+  A e S quase sempre, passa a acusar quase todo par em que I é verdadeiro (FPR de 84%). O modelo não
+  discrimina nenhum dos três fatores.
+- **Qwen3-VL-4B: I explica os FN, mas esconde outros erros.** Com I correto, a FNR cai de 93,2% para
+  6,8%: quase todos os ataques perdidos vêm da leitura de I. Ao mesmo tempo, a FPR sobe de 4,3% para
+  47,1%, porque os erros em A e S, que a rejeição de I encobria, aparecem. A FPR baixa desse modelo não
+  é mérito: é consequência de rejeitar I. Corrigir A ou S sozinhos não muda a FNR.
+- **LLaVA: A é o fator com maior ganho, mas não basta.** Corrigir A reduz a FPR de 90% para 42,9%, a
+  maior queda de um fator isolado, porque o alinhamento é o fator falso mais comum entre os benignos
+  (32 de 70). A FNR não muda, porque os 7 FN vêm da rejeição de A **e** S. Só corrigindo A e S juntos
+  o LLaVA chegaria a FPR de 15,7% e FNR de 0%. Isso dá o teto do caminho C2 para esse modelo (42,9%) e
+  mostra que S também precisaria melhorar.
+- **Implicação para os caminhos:** o oráculo em I orienta a variante A3 para o Qwen3-VL-4B, e o oráculo
+  em A, o caminho C2 para o LLaVA. Em ambos os casos, o ganho real fica limitado pelos outros fatores.
 
 ### 2.5 Interpretação por modelo
 
